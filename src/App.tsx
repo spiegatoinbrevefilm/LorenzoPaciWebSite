@@ -38,6 +38,7 @@ interface WorkItem {
   category: string;
   image: string;
   description: string;
+  gallery?: string[];
   created_at?: string;
 }
 
@@ -190,7 +191,15 @@ const Hero = ({ onNavigate }: { onNavigate: (s: Section) => void }) => {
   );
 };
 
-const WorkGrid = ({ items, isLoading }: { items: WorkItem[], isLoading: boolean }) => {
+const WorkGrid = ({ 
+  items, 
+  isLoading,
+  onSelect
+}: { 
+  items: WorkItem[], 
+  isLoading: boolean,
+  onSelect: (item: WorkItem) => void
+}) => {
   if (isLoading) {
     return (
       <div className="py-40 flex justify-center">
@@ -216,14 +225,28 @@ const WorkGrid = ({ items, isLoading }: { items: WorkItem[], isLoading: boolean 
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ delay: index * 0.1 }}
+          onClick={() => onSelect(item)}
           className="group relative aspect-[4/5] bg-white overflow-hidden cursor-pointer"
         >
-          <img 
-            src={item.image} 
-            alt={item.title}
-            className="w-full h-full object-cover group-hover:scale-125 transition-all duration-1000 ease-in-out"
-            referrerPolicy="no-referrer"
-          />
+          <div className="w-full h-full">
+            {isVideo(item.image) ? (
+              <video 
+                src={item.image} 
+                className="w-full h-full object-cover group-hover:scale-125 transition-all duration-1000 ease-in-out"
+                autoPlay 
+                muted 
+                loop 
+                playsInline
+              />
+            ) : (
+              <img 
+                src={item.image} 
+                alt={item.title}
+                className="w-full h-full object-cover group-hover:scale-125 transition-all duration-1000 ease-in-out"
+                referrerPolicy="no-referrer"
+              />
+            )}
+          </div>
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-8 text-white">
             <p className="text-[10px] uppercase tracking-widest mb-2 opacity-70">{item.category}</p>
             <h3 className="text-2xl font-bold tracking-tight mb-4">{item.title}</h3>
@@ -232,6 +255,218 @@ const WorkGrid = ({ items, isLoading }: { items: WorkItem[], isLoading: boolean 
         </motion.div>
       ))}
     </div>
+  );
+};
+
+const isVideo = (url: string) => {
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+  return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
+};
+
+const ProjectDetail = ({ 
+  work, 
+  onClose 
+}: { 
+  work: WorkItem, 
+  onClose: () => void 
+}) => {
+  const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+  
+  // Combine cover image and gallery for the lightbox
+  const allImages = [work.image, ...(work.gallery || [])];
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (zoomedIndex !== null) {
+      setZoomedIndex((zoomedIndex + 1) % allImages.length);
+    }
+  };
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (zoomedIndex !== null) {
+      setZoomedIndex((zoomedIndex - 1 + allImages.length) % allImages.length);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] bg-white overflow-y-auto"
+    >
+      <div className="max-w-7xl mx-auto px-6 py-20">
+        <button 
+          onClick={onClose}
+          className="fixed top-8 right-8 z-[110] p-4 bg-black text-white rounded-full hover:scale-110 transition-transform"
+        >
+          <X size={24} />
+        </button>
+
+        <div className="grid lg:grid-cols-2 gap-20 mb-20">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <p className="text-xs uppercase tracking-[0.4em] font-bold opacity-30 mb-4">{work.category}</p>
+            <h2 className="text-5xl md:text-7xl font-light tracking-tighter leading-[0.9] mb-8 uppercase">
+              {work.title}
+            </h2>
+            <div className="prose prose-xl max-w-none text-black/60 leading-relaxed">
+              {work.description}
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4 }}
+            className="aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl shadow-black/10 cursor-zoom-in bg-gray-100"
+            onClick={() => setZoomedIndex(0)}
+          >
+            {isVideo(work.image) ? (
+              <video 
+                src={work.image} 
+                className="w-full h-full object-cover"
+                autoPlay 
+                muted 
+                loop 
+                playsInline
+              />
+            ) : (
+              <img 
+                src={work.image} 
+                alt={work.title} 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            )}
+          </motion.div>
+        </div>
+
+        {work.gallery && work.gallery.length > 0 && (
+          <div className="space-y-20">
+            <div className="flex items-center space-x-8">
+              <h3 className="text-xs uppercase tracking-[0.3em] font-bold opacity-30 whitespace-nowrap">Project Gallery</h3>
+              <div className="h-px w-full bg-black/5"></div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {work.gallery.map((img, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  onClick={() => setZoomedIndex(idx + 1)}
+                  className="aspect-video rounded-2xl overflow-hidden bg-gray-50 cursor-zoom-in"
+                >
+                  {isVideo(img) ? (
+                    <video 
+                      src={img} 
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                      autoPlay 
+                      muted 
+                      loop 
+                      playsInline
+                    />
+                  ) : (
+                    <img 
+                      src={img} 
+                      alt={`${work.title} gallery ${idx}`} 
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-40 pt-20 border-t border-black/5 flex justify-center">
+          <button 
+            onClick={onClose}
+            className="group flex items-center space-x-4 text-xs uppercase tracking-[0.3em] font-bold"
+          >
+            <X size={16} className="group-hover:rotate-90 transition-transform" />
+            <span>Close Project</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Lightbox Modal */}
+      <AnimatePresence>
+        {zoomedIndex !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-6 md:p-12 cursor-zoom-out"
+            onClick={() => setZoomedIndex(null)}
+          >
+            <button 
+              className="absolute top-8 right-8 text-white p-4 hover:scale-110 transition-transform z-[210]"
+              onClick={() => setZoomedIndex(null)}
+            >
+              <X size={32} />
+            </button>
+
+            {/* Navigation Arrows */}
+            <button 
+              className="absolute left-4 md:left-8 text-white p-4 hover:scale-125 transition-transform z-[210] bg-black/20 rounded-full backdrop-blur-sm"
+              onClick={handlePrev}
+            >
+              <ChevronRight size={40} className="rotate-180" />
+            </button>
+            <button 
+              className="absolute right-4 md:right-8 text-white p-4 hover:scale-125 transition-transform z-[210] bg-black/20 rounded-full backdrop-blur-sm"
+              onClick={handleNext}
+            >
+              <ChevronRight size={40} />
+            </button>
+
+            <div className="relative w-full h-full flex items-center justify-center">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={zoomedIndex}
+                  initial={{ scale: 0.9, opacity: 0, x: 20 }}
+                  animate={{ scale: 1, opacity: 1, x: 0 }}
+                  exit={{ scale: 0.9, opacity: 0, x: -20 }}
+                  transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                  className="max-w-full max-h-full flex items-center justify-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {isVideo(allImages[zoomedIndex]) ? (
+                    <video 
+                      src={allImages[zoomedIndex]} 
+                      className="max-w-full max-h-full rounded-lg shadow-2xl"
+                      controls
+                      autoPlay
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={allImages[zoomedIndex]}
+                      alt="Full size view"
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+              
+              {/* Counter */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white/50 text-[10px] uppercase tracking-widest font-bold pb-4">
+                {zoomedIndex + 1} / {allImages.length}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 
@@ -301,25 +536,45 @@ const AdminPanel = ({
     title: '',
     category: 'graphic',
     image: '',
-    description: ''
+    description: '',
+    gallery: []
   });
+  const [galleryInput, setGalleryInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
     if (!formData.title || !formData.image) return;
     setIsSaving(true);
+    
+    // Process gallery input
+    const galleryArray = galleryInput
+      .split('\n')
+      .map(url => url.trim())
+      .filter(url => url.length > 0);
+
+    const payload = {
+      ...formData,
+      gallery: galleryArray
+    };
+
     try {
-      if (editingId) {
-        await supabase.from('works').update(formData).eq('id', editingId);
-      } else {
-        await supabase.from('works').insert([formData]);
+      const { error } = editingId 
+        ? await supabase.from('works').update(payload).eq('id', editingId)
+        : await supabase.from('works').insert([payload]);
+
+      if (error) {
+        throw error;
       }
-      onRefresh();
+
+      await onRefresh();
       setIsAdding(false);
       setEditingId(null);
-      setFormData({ title: '', category: 'graphic', image: '', description: '' });
-    } catch (error) {
+      setFormData({ title: '', category: 'graphic', image: '', description: '', gallery: [] });
+      setGalleryInput('');
+      alert('Work saved successfully!');
+    } catch (error: any) {
       console.error('Error saving work:', error);
+      alert(`Error saving work: ${error.message || 'Unknown error'}. Make sure you have added the "gallery" column to your Supabase table.`);
     } finally {
       setIsSaving(false);
     }
@@ -392,7 +647,7 @@ const AdminPanel = ({
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Image URL</label>
+                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Cover Image URL</label>
                 <input 
                   type="text" 
                   value={formData.image}
@@ -401,13 +656,22 @@ const AdminPanel = ({
                   placeholder="https://..."
                 />
               </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Gallery Images (One URL per line - Images or Videos)</label>
+                <textarea 
+                  value={galleryInput}
+                  onChange={(e) => setGalleryInput(e.target.value)}
+                  className="w-full bg-white border border-black/10 rounded-lg px-4 py-3 h-[100px] focus:outline-none focus:border-black transition-colors resize-none"
+                  placeholder="https://image1.jpg&#10;https://video1.mp4"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Description</label>
               <textarea 
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full bg-white border border-black/10 rounded-lg px-4 py-3 h-[188px] focus:outline-none focus:border-black transition-colors resize-none"
+                className="w-full bg-white border border-black/10 rounded-lg px-4 py-3 h-[288px] focus:outline-none focus:border-black transition-colors resize-none"
                 placeholder="Short project description..."
               />
             </div>
@@ -464,8 +728,10 @@ const AdminPanel = ({
                           title: work.title,
                           category: work.category,
                           image: work.image,
-                          description: work.description
+                          description: work.description,
+                          gallery: work.gallery || []
                         });
+                        setGalleryInput((work.gallery || []).join('\n'));
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       className="p-2 hover:bg-black hover:text-white rounded-full transition-all"
@@ -592,6 +858,7 @@ export default function App() {
   const [works, setWorks] = useState<WorkItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
+  const [selectedWork, setSelectedWork] = useState<WorkItem | null>(null);
 
   const fetchWorks = async () => {
     setIsLoading(true);
@@ -630,6 +897,7 @@ export default function App() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (activeSection !== 'home') setSelectedWork(null);
   }, [activeSection]);
 
   const handleLogout = async () => {
@@ -647,6 +915,13 @@ export default function App() {
       
       <main>
         <AnimatePresence mode="wait">
+          {selectedWork && (
+            <ProjectDetail 
+              work={selectedWork} 
+              onClose={() => setSelectedWork(null)} 
+            />
+          )}
+
           {activeSection === 'home' && (
             <motion.div
               key="home"
@@ -660,7 +935,11 @@ export default function App() {
                   <h3 className="text-xs uppercase tracking-[0.3em] font-bold opacity-30">Selected Works</h3>
                   <div className="h-px flex-grow mx-8 bg-black/5"></div>
                 </div>
-                <WorkGrid items={works} isLoading={isLoading} />
+                <WorkGrid 
+                  items={works} 
+                  isLoading={isLoading} 
+                  onSelect={setSelectedWork}
+                />
               </div>
             </motion.div>
           )}
@@ -677,7 +956,11 @@ export default function App() {
                 <p className="text-xs uppercase tracking-[0.4em] font-bold opacity-30 mb-4">Category</p>
                 <h2 className="text-6xl md:text-8xl font-light tracking-tighter uppercase">{activeSection}</h2>
               </div>
-              <WorkGrid items={filteredWorks} isLoading={isLoading} />
+              <WorkGrid 
+                items={filteredWorks} 
+                isLoading={isLoading} 
+                onSelect={setSelectedWork}
+              />
             </motion.div>
           )}
 
