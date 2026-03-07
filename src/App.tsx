@@ -37,8 +37,12 @@ interface WorkItem {
   title: string;
   category: string;
   image: string;
+  image_caption?: string;
+  image_link?: { label: string; url: string };
   description: string;
-  gallery?: string[];
+  description_bottom?: string;
+  gallery?: { url: string; caption?: string; link?: { label: string; url: string } }[];
+  links?: { label: string; url: string }[];
   created_at?: string;
 }
 
@@ -271,22 +275,32 @@ const ProjectDetail = ({
   onClose: () => void 
 }) => {
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+  const lastScrollTime = React.useRef(0);
   
-  // Combine cover image and gallery for the lightbox
-  const allImages = [work.image, ...(work.gallery || [])];
+  // Combine cover image and gallery for the lightbox with their respective captions
+  const allMedia = [
+    { url: work.image, caption: work.image_caption || '', link: work.image_link || null },
+    ...(work.gallery || []).map(item => 
+      typeof item === 'string' ? { url: item, caption: '', link: null } : item
+    )
+  ];
 
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (zoomedIndex !== null) {
-      setZoomedIndex((zoomedIndex + 1) % allImages.length);
+      setZoomedIndex((zoomedIndex + 1) % allMedia.length);
     }
   };
 
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handlePrev = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (zoomedIndex !== null) {
-      setZoomedIndex((zoomedIndex - 1 + allImages.length) % allImages.length);
+      setZoomedIndex((zoomedIndex - 1 + allMedia.length) % allMedia.length);
     }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    // Removed image switching on wheel to allow natural scrolling of long captions
   };
 
   return (
@@ -304,26 +318,58 @@ const ProjectDetail = ({
           <X size={24} />
         </button>
 
-        <div className="grid lg:grid-cols-2 gap-20 mb-20">
+        <div className="grid lg:grid-cols-2 gap-20 mb-20 items-start">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
+            className="lg:pt-0"
           >
             <p className="text-xs uppercase tracking-[0.4em] font-bold opacity-30 mb-4">{work.category}</p>
             <h2 className="text-5xl md:text-7xl font-light tracking-tighter leading-[0.9] mb-8 uppercase">
               {work.title}
             </h2>
-            <div className="prose prose-xl max-w-none text-black/60 leading-relaxed">
+            <div className="prose prose-xl max-w-none text-black/60 leading-relaxed mb-12">
               {work.description}
             </div>
+
+            {work.image_link && work.image_link.url && (
+              <div className="mb-12">
+                <a 
+                  href={work.image_link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center space-x-2 text-[10px] uppercase tracking-widest font-bold px-6 py-3 border border-black/10 rounded-full hover:bg-black hover:text-white transition-all"
+                >
+                  <span>{work.image_link.label || 'View Link'}</span>
+                  <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+                </a>
+              </div>
+            )}
+
+            {work.links && work.links.length > 0 && (
+              <div className="flex flex-wrap gap-4 py-8 border-t border-black/5">
+                {work.links.map((link, idx) => (
+                  <a 
+                    key={idx}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-center space-x-2 text-[10px] uppercase tracking-widest font-bold px-6 py-3 border border-black/10 rounded-full hover:bg-black hover:text-white transition-all"
+                  >
+                    <span>{link.label}</span>
+                    <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+                  </a>
+                ))}
+              </div>
+            )}
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
-            className="aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl shadow-black/10 cursor-zoom-in bg-gray-100"
+            className="lg:sticky lg:top-32 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl shadow-black/10 cursor-zoom-in bg-gray-100"
             onClick={() => setZoomedIndex(0)}
           >
             {isVideo(work.image) ? (
@@ -347,41 +393,71 @@ const ProjectDetail = ({
         </div>
 
         {work.gallery && work.gallery.length > 0 && (
-          <div className="space-y-20">
+          <div className="space-y-20 mb-20">
             <div className="flex items-center space-x-8">
               <h3 className="text-xs uppercase tracking-[0.3em] font-bold opacity-30 whitespace-nowrap">Project Gallery</h3>
               <div className="h-px w-full bg-black/5"></div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {work.gallery.map((img, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  onClick={() => setZoomedIndex(idx + 1)}
-                  className="aspect-video rounded-2xl overflow-hidden bg-gray-50 cursor-zoom-in"
-                >
-                  {isVideo(img) ? (
-                    <video 
-                      src={img} 
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                      autoPlay 
-                      muted 
-                      loop 
-                      playsInline
-                    />
-                  ) : (
-                    <img 
-                      src={img} 
-                      alt={`${work.title} gallery ${idx}`} 
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                </motion.div>
-              ))}
+              {work.gallery.map((item, idx) => {
+                const url = typeof item === 'string' ? item : item.url;
+                const link = typeof item === 'string' ? null : item.link;
+                return (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="space-y-4"
+                  >
+                    <div
+                      onClick={() => setZoomedIndex(idx + 1)}
+                      className="aspect-video rounded-2xl overflow-hidden bg-gray-50 cursor-zoom-in"
+                    >
+                      {isVideo(url) ? (
+                        <video 
+                          src={url} 
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                          autoPlay 
+                          muted 
+                          loop 
+                          playsInline
+                        />
+                      ) : (
+                        <img 
+                          src={url} 
+                          alt={`${work.title} gallery ${idx}`} 
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                    </div>
+                    {link && link.url && (
+                      <div className="flex justify-start">
+                        <a 
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-center space-x-2 text-[9px] uppercase tracking-widest font-bold px-4 py-2 border border-black/10 rounded-full hover:bg-black hover:text-white transition-all"
+                        >
+                          <span>{link.label || 'View Link'}</span>
+                          <ArrowRight size={10} className="group-hover:translate-x-1 transition-transform" />
+                        </a>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {work.description_bottom && (
+          <div className="mt-20 pt-20 border-t border-black/5 max-w-4xl">
+            <h3 className="text-xs uppercase tracking-[0.3em] font-bold opacity-30 mb-8">Additional Details</h3>
+            <div className="prose prose-xl max-w-none text-black/60 leading-relaxed">
+              {work.description_bottom}
             </div>
           </div>
         )}
@@ -404,63 +480,94 @@ const ProjectDetail = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-6 md:p-12 cursor-zoom-out"
+            className="fixed inset-0 z-[200] bg-black/95 overflow-y-auto"
             onClick={() => setZoomedIndex(null)}
           >
-            <button 
-              className="absolute top-8 right-8 text-white p-4 hover:scale-110 transition-transform z-[210]"
-              onClick={() => setZoomedIndex(null)}
-            >
-              <X size={32} />
-            </button>
+            <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 md:p-12 lg:p-24">
+              <button 
+                className="fixed top-8 right-8 text-white p-4 hover:scale-110 transition-transform z-[210] bg-black/20 rounded-full backdrop-blur-md"
+                onClick={() => setZoomedIndex(null)}
+              >
+                <X size={32} />
+              </button>
 
-            {/* Navigation Arrows */}
-            <button 
-              className="absolute left-4 md:left-8 text-white p-4 hover:scale-125 transition-transform z-[210] bg-black/20 rounded-full backdrop-blur-sm"
-              onClick={handlePrev}
-            >
-              <ChevronRight size={40} className="rotate-180" />
-            </button>
-            <button 
-              className="absolute right-4 md:right-8 text-white p-4 hover:scale-125 transition-transform z-[210] bg-black/20 rounded-full backdrop-blur-sm"
-              onClick={handleNext}
-            >
-              <ChevronRight size={40} />
-            </button>
+              {/* Navigation Arrows */}
+              <button 
+                className="fixed left-4 md:left-8 top-1/2 -translate-y-1/2 text-white p-4 hover:scale-125 transition-transform z-[210] bg-black/20 rounded-full backdrop-blur-sm"
+                onClick={handlePrev}
+              >
+                <ChevronRight size={40} className="rotate-180" />
+              </button>
+              <button 
+                className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 text-white p-4 hover:scale-125 transition-transform z-[210] bg-black/20 rounded-full backdrop-blur-sm"
+                onClick={handleNext}
+              >
+                <ChevronRight size={40} />
+              </button>
 
-            <div className="relative w-full h-full flex items-center justify-center">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={zoomedIndex}
-                  initial={{ scale: 0.9, opacity: 0, x: 20 }}
-                  animate={{ scale: 1, opacity: 1, x: 0 }}
-                  exit={{ scale: 0.9, opacity: 0, x: -20 }}
-                  transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                  className="max-w-full max-h-full flex items-center justify-center"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {isVideo(allImages[zoomedIndex]) ? (
-                    <video 
-                      src={allImages[zoomedIndex]} 
-                      className="max-w-full max-h-full rounded-lg shadow-2xl"
-                      controls
-                      autoPlay
-                      playsInline
-                    />
-                  ) : (
-                    <img
-                      src={allImages[zoomedIndex]}
-                      alt="Full size view"
-                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-              
-              {/* Counter */}
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white/50 text-[10px] uppercase tracking-widest font-bold pb-4">
-                {zoomedIndex + 1} / {allImages.length}
+              <div className="relative w-full max-w-6xl mx-auto flex flex-col items-center">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={zoomedIndex}
+                    initial={{ scale: 0.9, opacity: 0, x: 20 }}
+                    animate={{ scale: 1, opacity: 1, x: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, x: -20 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className="w-full flex flex-col items-center"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="relative w-full max-h-[80vh] flex items-center justify-center mb-12">
+                      {isVideo(allMedia[zoomedIndex].url) ? (
+                        <video 
+                          src={allMedia[zoomedIndex].url} 
+                          className="max-w-full max-h-[80vh] rounded-lg shadow-2xl"
+                          controls
+                          autoPlay
+                          playsInline
+                        />
+                      ) : (
+                        <img
+                          src={allMedia[zoomedIndex].url}
+                          alt="Full size view"
+                          className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                    </div>
+                    
+                    {/* Info Overlay in Lightbox - Specific Caption & Link */}
+                    {(allMedia[zoomedIndex].caption || allMedia[zoomedIndex].link) && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-center max-w-3xl px-6 pb-12 flex flex-col items-center space-y-6"
+                      >
+                        {allMedia[zoomedIndex].caption && (
+                          <p className="text-white text-lg md:text-xl font-light tracking-tight leading-relaxed opacity-90">
+                            {allMedia[zoomedIndex].caption}
+                          </p>
+                        )}
+                        
+                        {allMedia[zoomedIndex].link && allMedia[zoomedIndex].link.url && (
+                          <a 
+                            href={allMedia[zoomedIndex].link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex items-center space-x-2 text-[10px] uppercase tracking-widest font-bold px-6 py-3 border border-white/20 rounded-full text-white hover:bg-white hover:text-black transition-all"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span>{allMedia[zoomedIndex].link.label || 'View Link'}</span>
+                            <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+                          </a>
+                        )}
+                      </motion.div>
+                    )}
+                    
+                    <div className="text-white/30 text-[10px] uppercase tracking-widest font-bold pb-8">
+                      {zoomedIndex + 1} / {allMedia.length}
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>
@@ -536,45 +643,169 @@ const AdminPanel = ({
     title: '',
     category: 'graphic',
     image: '',
+    image_caption: '',
+    image_link: { label: '', url: '' },
     description: '',
-    gallery: []
+    description_bottom: '',
+    gallery: [],
+    links: []
   });
-  const [galleryInput, setGalleryInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  const addGalleryItem = () => {
+    const currentGallery = formData.gallery || [];
+    setFormData({
+      ...formData,
+      gallery: [...currentGallery, { url: '', caption: '', link: { label: '', url: '' } }]
+    });
+  };
+
+  const removeGalleryItem = (index: number) => {
+    const currentGallery = [...(formData.gallery || [])];
+    currentGallery.splice(index, 1);
+    setFormData({ ...formData, gallery: currentGallery });
+  };
+
+  const updateGalleryItem = (index: number, field: 'url' | 'caption' | 'link_label' | 'link_url', value: string) => {
+    const currentGallery = [...(formData.gallery || [])];
+    let item = currentGallery[index];
+    
+    // Normalize to object if it's a string (backward compatibility)
+    if (typeof item === 'string') {
+      item = { url: item, caption: '', link: { label: '', url: '' } };
+    }
+
+    if (field === 'link_label' || field === 'link_url') {
+      const link = item.link || { label: '', url: '' };
+      if (field === 'link_label') link.label = value;
+      if (field === 'link_url') link.url = value;
+      currentGallery[index] = { ...item, link };
+    } else {
+      currentGallery[index] = { ...item, [field]: value };
+    }
+    setFormData({ ...formData, gallery: currentGallery });
+  };
+
+  const addLink = () => {
+    const currentLinks = formData.links || [];
+    setFormData({
+      ...formData,
+      links: [...currentLinks, { label: '', url: '' }]
+    });
+  };
+
+  const removeLink = (index: number) => {
+    const currentLinks = [...(formData.links || [])];
+    currentLinks.splice(index, 1);
+    setFormData({ ...formData, links: currentLinks });
+  };
+
+  const updateLink = (index: number, field: 'label' | 'url', value: string) => {
+    const currentLinks = [...(formData.links || [])];
+    currentLinks[index] = { ...currentLinks[index], [field]: value };
+    setFormData({ ...formData, links: currentLinks });
+  };
+
   const handleSave = async () => {
-    if (!formData.title || !formData.image) return;
+    if (!formData.title || !formData.image) {
+      alert('Per favore, inserisci almeno il Titolo e l\'URL dell\'immagine di copertina.');
+      return;
+    }
     setIsSaving(true);
     
-    // Process gallery input
-    const galleryArray = galleryInput
-      .split('\n')
-      .map(url => url.trim())
-      .filter(url => url.length > 0);
+    // Clean up gallery items: remove empty links and normalize
+    const cleanedGallery = (formData.gallery || []).map(item => {
+      const normalized = typeof item === 'string' ? { url: item, caption: '', link: { label: '', url: '' } } : item;
+      // If link is empty, don't send it or send null
+      if (normalized.link && !normalized.link.label && !normalized.link.url) {
+        const { link, ...rest } = normalized;
+        return rest;
+      }
+      return normalized;
+    });
 
-    const payload = {
-      ...formData,
-      gallery: galleryArray
+    // Clean up links: remove empty ones
+    const cleanedLinks = (formData.links || []).filter(l => l.label || l.url);
+
+    // Clean up image_link
+    const cleanedImageLink = (formData.image_link?.label || formData.image_link?.url) 
+      ? formData.image_link 
+      : null;
+
+    const fullPayload: any = {
+      title: formData.title,
+      category: formData.category,
+      image: formData.image,
+      description: formData.description,
     };
 
+    // Add optional fields only if they have content to avoid potential column issues if not needed
+    if (formData.image_caption) fullPayload.image_caption = formData.image_caption;
+    if (cleanedImageLink) fullPayload.image_link = cleanedImageLink;
+    if (formData.description_bottom) fullPayload.description_bottom = formData.description_bottom;
+    if (cleanedGallery.length > 0) fullPayload.gallery = cleanedGallery;
+    if (cleanedLinks.length > 0) fullPayload.links = cleanedLinks;
+
     try {
-      const { error } = editingId 
-        ? await supabase.from('works').update(payload).eq('id', editingId)
-        : await supabase.from('works').insert([payload]);
+      console.log('Attempting to save payload:', fullPayload);
+      
+      const { error, data } = editingId 
+        ? await supabase.from('works').update(fullPayload).eq('id', editingId).select()
+        : await supabase.from('works').insert([fullPayload]).select();
 
       if (error) {
-        throw error;
+        console.error('Supabase save error:', error);
+        
+        // Check if error is due to missing columns or type mismatch
+        const isColumnError = error.message?.includes('column') || error.code === '42703';
+        
+        if (isColumnError) {
+          console.warn('Advanced columns missing or type mismatch, attempting fallback save...');
+          
+          // Fallback payload with only the most basic fields
+          const fallbackPayload = {
+            title: formData.title,
+            category: formData.category,
+            image: formData.image,
+            description: formData.description,
+            // Fallback gallery to strings if it was an array of objects but the DB expects strings (text[])
+            gallery: cleanedGallery.map(item => typeof item === 'string' ? item : item.url)
+          };
+
+          const { error: fallbackError } = editingId 
+            ? await supabase.from('works').update(fallbackPayload).eq('id', editingId)
+            : await supabase.from('works').insert([fallbackPayload]);
+
+          if (fallbackError) {
+            console.error('Fallback save error:', fallbackError);
+            throw fallbackError;
+          }
+          
+          alert('Salvato con successo (modalità base). Per usare link e didascalie, aggiorna la tabella Supabase aggiungendo le colonne: image_caption (text), image_link (jsonb), description_bottom (text), links (jsonb). Assicurati anche che "gallery" sia di tipo jsonb.');
+        } else {
+          throw error;
+        }
+      } else {
+        alert('Progetto salvato con successo!');
       }
 
       await onRefresh();
       setIsAdding(false);
       setEditingId(null);
-      setFormData({ title: '', category: 'graphic', image: '', description: '', gallery: [] });
-      setGalleryInput('');
-      alert('Work saved successfully!');
+      setFormData({ 
+        title: '', 
+        category: 'graphic', 
+        image: '', 
+        image_caption: '', 
+        image_link: { label: '', url: '' }, 
+        description: '', 
+        description_bottom: '', 
+        gallery: [], 
+        links: [] 
+      });
     } catch (error: any) {
-      console.error('Error saving work:', error);
-      alert(`Error saving work: ${error.message || 'Unknown error'}. Make sure you have added the "gallery" column to your Supabase table.`);
+      console.error('Final catch error:', error);
+      alert(`Errore durante il salvataggio: ${error.message || 'Errore sconosciuto'}. Controlla la console per i dettagli.`);
     } finally {
       setIsSaving(false);
     }
@@ -622,8 +853,8 @@ const AdminPanel = ({
           className="bg-gray-50 p-8 rounded-2xl mb-12 border border-black/5"
         >
           <h3 className="text-xl font-bold mb-6">{editingId ? 'Edit Work' : 'Add New Work'}</h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-12">
+            <div className="space-y-6">
               <div>
                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Title</label>
                 <input 
@@ -657,26 +888,178 @@ const AdminPanel = ({
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Gallery Images (One URL per line - Images or Videos)</label>
-                <textarea 
-                  value={galleryInput}
-                  onChange={(e) => setGalleryInput(e.target.value)}
-                  className="w-full bg-white border border-black/10 rounded-lg px-4 py-3 h-[100px] focus:outline-none focus:border-black transition-colors resize-none"
-                  placeholder="https://image1.jpg&#10;https://video1.mp4"
+                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Cover Image Caption (Lightbox only)</label>
+                <input 
+                  type="text" 
+                  value={formData.image_caption}
+                  onChange={(e) => setFormData({...formData, image_caption: e.target.value})}
+                  className="w-full bg-white border border-black/10 rounded-lg px-4 py-3 focus:outline-none focus:border-black transition-colors mb-4"
+                  placeholder="Caption for the first image in lightbox..."
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <input 
+                    type="text" 
+                    value={formData.image_link?.label || ''}
+                    onChange={(e) => setFormData({...formData, image_link: { ...formData.image_link!, label: e.target.value }})}
+                    className="w-full text-[10px] bg-white border border-black/10 rounded-lg px-3 py-2 focus:outline-none focus:border-black transition-colors"
+                    placeholder="Link Label (Optional)"
+                  />
+                  <input 
+                    type="text" 
+                    value={formData.image_link?.url || ''}
+                    onChange={(e) => setFormData({...formData, image_link: { ...formData.image_link!, url: e.target.value }})}
+                    className="w-full text-[10px] bg-white border border-black/10 rounded-lg px-3 py-2 focus:outline-none focus:border-black transition-colors"
+                    placeholder="Link URL (Optional)"
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] uppercase tracking-widest font-bold opacity-40">Gallery Items</label>
+                  <button 
+                    onClick={addGalleryItem}
+                    className="p-1 bg-black text-white rounded-full hover:scale-110 transition-transform"
+                    title="Add Gallery Item"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {(formData.gallery || []).map((item, idx) => (
+                    <div key={idx} className="p-4 bg-white border border-black/5 rounded-xl space-y-3 relative group">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] uppercase tracking-widest font-bold opacity-30">Item #{idx + 1}</span>
+                        {idx > 0 && (
+                          <button 
+                            onClick={() => removeGalleryItem(idx)}
+                            className="p-1.5 bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <input 
+                          type="text" 
+                          value={item.url}
+                          onChange={(e) => updateGalleryItem(idx, 'url', e.target.value)}
+                          className="w-full text-[10px] bg-gray-50 border border-black/5 rounded-lg px-3 py-2 focus:outline-none focus:border-black transition-colors"
+                          placeholder="Image/Video URL"
+                        />
+                      </div>
+                      <div>
+                        <input 
+                          type="text" 
+                          value={item.caption}
+                          onChange={(e) => updateGalleryItem(idx, 'caption', e.target.value)}
+                          className="w-full text-[10px] bg-gray-50 border border-black/5 rounded-lg px-3 py-2 focus:outline-none focus:border-black transition-colors mb-2"
+                          placeholder="Caption (Optional)"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input 
+                            type="text" 
+                            value={item.link?.label || ''}
+                            onChange={(e) => updateGalleryItem(idx, 'link_label', e.target.value)}
+                            className="w-full text-[10px] bg-gray-50 border border-black/5 rounded-lg px-3 py-2 focus:outline-none focus:border-black transition-colors"
+                            placeholder="Link Label (Optional)"
+                          />
+                          <input 
+                            type="text" 
+                            value={item.link?.url || ''}
+                            onChange={(e) => updateGalleryItem(idx, 'link_url', e.target.value)}
+                            className="w-full text-[10px] bg-gray-50 border border-black/5 rounded-lg px-3 py-2 focus:outline-none focus:border-black transition-colors"
+                            placeholder="Link URL (Optional)"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {(formData.gallery || []).length === 0 && (
+                    <button 
+                      onClick={addGalleryItem}
+                      className="w-full text-[10px] text-center opacity-30 py-8 border border-dashed border-black/10 rounded-xl hover:opacity-100 hover:bg-black/5 transition-all"
+                    >
+                      + Add first gallery item
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Description</label>
-              <textarea 
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full bg-white border border-black/10 rounded-lg px-4 py-3 h-[288px] focus:outline-none focus:border-black transition-colors resize-none"
-                placeholder="Short project description..."
-              />
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Description (Top)</label>
+                <textarea 
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  className="w-full bg-white border border-black/10 rounded-lg px-4 py-3 h-[150px] focus:outline-none focus:border-black transition-colors resize-none"
+                  placeholder="Main description..."
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Description (Bottom - Optional)</label>
+                <textarea 
+                  value={formData.description_bottom}
+                  onChange={(e) => setFormData({...formData, description_bottom: e.target.value})}
+                  className="w-full bg-white border border-black/10 rounded-lg px-4 py-3 h-[150px] focus:outline-none focus:border-black transition-colors resize-none"
+                  placeholder="Secondary description under gallery..."
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] uppercase tracking-widest font-bold opacity-40">External Links</label>
+                  <button 
+                    onClick={addLink}
+                    className="p-1 bg-black text-white rounded-full hover:scale-110 transition-transform"
+                    title="Add Link"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                  {(formData.links || []).map((link, idx) => (
+                    <div key={idx} className="p-4 bg-white border border-black/5 rounded-xl space-y-3 relative group">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] uppercase tracking-widest font-bold opacity-30">Link #{idx + 1}</span>
+                        <button 
+                          onClick={() => removeLink(idx)}
+                          className="p-1.5 bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input 
+                          type="text" 
+                          value={link.label}
+                          onChange={(e) => updateLink(idx, 'label', e.target.value)}
+                          className="w-full text-[10px] bg-gray-50 border border-black/5 rounded-lg px-3 py-2 focus:outline-none focus:border-black transition-colors"
+                          placeholder="Label (e.g. Instagram)"
+                        />
+                        <input 
+                          type="text" 
+                          value={link.url}
+                          onChange={(e) => updateLink(idx, 'url', e.target.value)}
+                          className="w-full text-[10px] bg-gray-50 border border-black/5 rounded-lg px-3 py-2 focus:outline-none focus:border-black transition-colors"
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {(formData.links || []).length === 0 && (
+                    <button 
+                      onClick={addLink}
+                      className="w-full text-[10px] text-center opacity-30 py-8 border border-dashed border-black/10 rounded-xl hover:opacity-100 hover:bg-black/5 transition-all"
+                    >
+                      + Add first link
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex justify-end space-x-4 mt-8">
+          
+          <div className="flex justify-end space-x-4 mt-8 pt-8 border-t border-black/5">
             <button 
               onClick={() => { setIsAdding(false); setEditingId(null); }}
               className="px-6 py-3 text-xs uppercase tracking-widest font-bold opacity-40 hover:opacity-100"
@@ -728,10 +1111,15 @@ const AdminPanel = ({
                           title: work.title,
                           category: work.category,
                           image: work.image,
+                          image_caption: work.image_caption || '',
+                          image_link: work.image_link || { label: '', url: '' },
                           description: work.description,
-                          gallery: work.gallery || []
+                          description_bottom: work.description_bottom || '',
+                          gallery: (work.gallery || []).map(item => 
+                            typeof item === 'string' ? { url: item, caption: '', link: { label: '', url: '' } } : item
+                          ),
+                          links: work.links || []
                         });
-                        setGalleryInput((work.gallery || []).join('\n'));
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       className="p-2 hover:bg-black hover:text-white rounded-full transition-all"
