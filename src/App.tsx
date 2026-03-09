@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Menu, 
@@ -161,7 +161,7 @@ const Navbar = ({
 
 const Hero = ({ onNavigate }: { onNavigate: (s: Section) => void }) => {
   return (
-    <section className="pt-40 pb-20 px-6 max-w-7xl mx-auto">
+    <section className="pt-40 pb-12 px-6 max-w-7xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -254,7 +254,7 @@ const WorkGrid = ({
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-8 text-white">
             <p className="text-[10px] uppercase tracking-widest mb-2 opacity-70">{item.category}</p>
             <h3 className="text-2xl font-bold tracking-tight mb-4">{item.title}</h3>
-            <p className="text-sm opacity-80 line-clamp-2">{item.description}</p>
+            <p className="text-sm opacity-80 line-clamp-2 whitespace-pre-wrap">{item.description}</p>
           </div>
         </motion.div>
       ))}
@@ -267,6 +267,167 @@ const isVideo = (url: string) => {
   return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
 };
 
+const HorizontalWorkRow = ({ 
+  title, 
+  items, 
+  onSelect 
+}: { 
+  title: string, 
+  items: WorkItem[], 
+  onSelect: (item: WorkItem) => void 
+}) => {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [centeredId, setCenteredId] = useState<string | null>(null);
+  
+  // Triple the items to create an infinite loop effect
+  const displayItems = items.length > 1 ? [...items, ...items, ...items] : items;
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollTo = direction === 'left' ? scrollLeft - clientWidth : scrollLeft + clientWidth;
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (scrollRef.current) {
+        const container = scrollRef.current;
+        const { scrollLeft, scrollWidth, clientWidth } = container;
+        
+        // Infinite loop logic: jump when reaching the ends of the tripled list
+        if (items.length > 1) {
+          const oneSetWidth = scrollWidth / 3;
+          if (scrollLeft < 10) {
+            // If at the very beginning, jump to the start of the second set
+            container.scrollLeft = oneSetWidth;
+          } else if (scrollLeft > oneSetWidth * 2) {
+            // If reached the third set, jump back to the second set
+            container.scrollLeft = oneSetWidth;
+          }
+        }
+
+        const containerCenter = container.scrollLeft + container.clientWidth / 2;
+        
+        let closestId = null;
+        let minDistance = Infinity;
+
+        const children = container.children;
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i] as HTMLElement;
+          const childCenter = child.offsetLeft + child.clientWidth / 2;
+          const distance = Math.abs(containerCenter - childCenter);
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            // Use modulo to get the correct item ID from the original items array
+            closestId = items[i % items.length]?.id;
+          }
+        }
+        setCenteredId(closestId);
+      }
+    };
+
+    const currentRef = scrollRef.current;
+    if (currentRef) {
+      currentRef.addEventListener('scroll', handleScroll, { passive: true });
+      
+      // Initial setup: scroll to the middle set for infinite effect
+      const initScroll = () => {
+        if (items.length > 1) {
+          const oneSetWidth = currentRef.scrollWidth / 3;
+          currentRef.scrollLeft = oneSetWidth;
+        }
+        handleScroll();
+      };
+
+      // Small delay to ensure layout and scrollWidth are ready
+      const timer = setTimeout(initScroll, 100);
+      
+      window.addEventListener('resize', handleScroll);
+      return () => {
+        currentRef.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('resize', handleScroll);
+        clearTimeout(timer);
+      };
+    }
+  }, [items]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="relative group mb-20">
+      <div className="relative">
+        <div 
+          ref={scrollRef}
+          className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-1"
+        >
+          {displayItems.map((item, index) => (
+            <div 
+              key={`${item.id}-${index}`}
+              onClick={() => onSelect(item)}
+              className="flex-none w-[90vw] md:w-[45vw] lg:w-[33vw] aspect-[4/5] snap-start cursor-pointer overflow-hidden relative group/item"
+            >
+              <div className="w-full h-full">
+                {isVideo(item.image) ? (
+                  <video 
+                    src={item.image} 
+                    className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-1000 ease-in-out"
+                    autoPlay 
+                    muted 
+                    loop 
+                    playsInline
+                  />
+                ) : (
+                  <img 
+                    src={item.image} 
+                    alt={item.title}
+                    className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-1000 ease-in-out"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+              </div>
+              <div className={`absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex flex-col ${item.id === centeredId ? 'justify-start' : 'justify-end'} p-8 text-white`}>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest mb-2 opacity-70">{item.category}</p>
+                  <h3 className="text-2xl font-bold tracking-tight mb-4">{item.title}</h3>
+                  <p className="text-sm opacity-80 line-clamp-2 whitespace-pre-wrap">{item.description}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Large Right Chevron - Graphic Stratagem */}
+        <button 
+          onClick={() => scroll('right')}
+          className="absolute right-0 top-0 bottom-0 z-10 w-24 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-black/40 to-transparent"
+        >
+          <svg width="40" height="100" viewBox="0 0 40 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-2xl">
+            <path d="M0 0L40 50L0 100V0Z" fill="white" />
+          </svg>
+        </button>
+
+        {/* Category Label with Arrow Graphic - Overlaid on Image */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20 w-[90vw] md:w-[45vw] lg:w-[33vw]">
+          <div className="relative h-[35px] md:h-[50px] flex justify-center">
+            {/* Upward pointing triangle using clip-path for full width - squashed height */}
+            <div 
+              className="absolute inset-0 bg-white"
+              style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}
+            ></div>
+            {/* Text positioned half-in and half-out of the triangle base */}
+            <div className="absolute bottom-0 translate-y-1/2 z-10">
+              <h3 className="text-4xl md:text-6xl italic font-serif lowercase tracking-tight text-black leading-none">{title}</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ProjectDetail = ({ 
   work, 
   onClose 
@@ -275,8 +436,17 @@ const ProjectDetail = ({
   onClose: () => void 
 }) => {
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
-  const lastScrollTime = React.useRef(0);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   
+  // Lock scroll on the project detail container when lightbox is open
+  useEffect(() => {
+    if (zoomedIndex !== null && scrollContainerRef.current) {
+      scrollContainerRef.current.style.overflow = 'hidden';
+    } else if (scrollContainerRef.current) {
+      scrollContainerRef.current.style.overflow = 'auto';
+    }
+  }, [zoomedIndex]);
+
   // Combine cover image and gallery for the lightbox with their respective captions
   const allMedia = [
     { url: work.image, caption: work.image_caption || '', link: work.image_link || null },
@@ -308,17 +478,14 @@ const ProjectDetail = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-white overflow-y-auto"
+      className="fixed inset-0 z-[100] bg-white"
     >
-      <div className="max-w-7xl mx-auto px-6 py-20">
-        <button 
-          onClick={onClose}
-          className="fixed top-8 right-8 z-[110] p-4 bg-black text-white rounded-full hover:scale-110 transition-transform"
-        >
-          <X size={24} />
-        </button>
-
-        <div className="grid lg:grid-cols-2 gap-20 mb-20 items-start">
+      <div 
+        ref={scrollContainerRef}
+        className="h-full w-full overflow-y-auto"
+      >
+        <div className="max-w-7xl mx-auto px-6 py-20">
+          <div className="grid lg:grid-cols-2 gap-20 mb-20 items-start">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -329,7 +496,7 @@ const ProjectDetail = ({
             <h2 className="text-5xl md:text-7xl font-light tracking-tighter leading-[0.9] mb-8 uppercase">
               {work.title}
             </h2>
-            <div className="prose prose-xl max-w-none text-black/60 leading-relaxed mb-12">
+            <div className="prose prose-xl max-w-none text-black/60 leading-relaxed mb-12 whitespace-pre-wrap">
               {work.description}
             </div>
 
@@ -456,7 +623,7 @@ const ProjectDetail = ({
         {work.description_bottom && (
           <div className="mt-20 pt-20 border-t border-black/5 max-w-4xl">
             <h3 className="text-xs uppercase tracking-[0.3em] font-bold opacity-30 mb-8">Additional Details</h3>
-            <div className="prose prose-xl max-w-none text-black/60 leading-relaxed">
+            <div className="prose prose-xl max-w-none text-black/60 leading-relaxed whitespace-pre-wrap">
               {work.description_bottom}
             </div>
           </div>
@@ -464,7 +631,10 @@ const ProjectDetail = ({
 
         <div className="mt-40 pt-20 border-t border-black/5 flex justify-center">
           <button 
-            onClick={onClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             className="group flex items-center space-x-4 text-xs uppercase tracking-[0.3em] font-bold"
           >
             <X size={16} className="group-hover:rotate-90 transition-transform" />
@@ -472,6 +642,18 @@ const ProjectDetail = ({
           </button>
         </div>
       </div>
+    </div>
+
+      {/* Fixed Close Button for Project Detail */}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+        className="fixed top-8 right-8 z-[110] p-4 bg-black text-white rounded-full hover:scale-110 transition-transform"
+      >
+        <X size={24} />
+      </button>
 
       {/* Lightbox Modal */}
       <AnimatePresence>
@@ -481,12 +663,18 @@ const ProjectDetail = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[200] bg-black/95 overflow-y-auto"
-            onClick={() => setZoomedIndex(null)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomedIndex(null);
+            }}
           >
             <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 md:p-12 lg:p-24">
               <button 
                 className="fixed top-8 right-8 text-white p-4 hover:scale-110 transition-transform z-[210] bg-black/20 rounded-full backdrop-blur-md"
-                onClick={() => setZoomedIndex(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomedIndex(null);
+                }}
               >
                 <X size={32} />
               </button>
@@ -543,7 +731,7 @@ const ProjectDetail = ({
                         className="text-center max-w-3xl px-6 pb-12 flex flex-col items-center space-y-6"
                       >
                         {allMedia[zoomedIndex].caption && (
-                          <p className="text-white text-lg md:text-xl font-light tracking-tight leading-relaxed opacity-90">
+                          <p className="text-white text-lg md:text-xl font-light tracking-tight leading-relaxed opacity-90 whitespace-pre-wrap">
                             {allMedia[zoomedIndex].caption}
                           </p>
                         )}
@@ -1247,6 +1435,12 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [selectedWork, setSelectedWork] = useState<WorkItem | null>(null);
+  const [showSaveIndicator, setShowSaveIndicator] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSaveIndicator(false), 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const fetchWorks = async () => {
     setIsLoading(true);
@@ -1279,9 +1473,24 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (selectedWork) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedWork]);
+
   const filteredWorks = activeSection === 'home' 
     ? works 
     : works.filter(w => w.category === activeSection);
+
+  const graphicWorks = useMemo(() => works.filter(w => w.category === 'graphic'), [works]);
+  const photoWorks = useMemo(() => works.filter(w => w.category === 'photo'), [works]);
+  const projectsWorks = useMemo(() => works.filter(w => w.category === 'projects'), [works]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1295,6 +1504,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
+      <AnimatePresence>
+        {showSaveIndicator && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-black text-white px-6 py-3 rounded-full text-[10px] uppercase tracking-[0.2em] font-bold shadow-2xl flex items-center space-x-3 border border-white/10"
+          >
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span>Livello di progetto salvato con successo</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Navbar 
         activeSection={activeSection} 
         onNavigate={setActiveSection} 
@@ -1302,14 +1525,18 @@ export default function App() {
       />
       
       <main>
-        <AnimatePresence mode="wait">
+        {/* Project Detail Overlay - Rendered independently to preserve background scroll */}
+        <AnimatePresence>
           {selectedWork && (
             <ProjectDetail 
               work={selectedWork} 
               onClose={() => setSelectedWork(null)} 
             />
           )}
+        </AnimatePresence>
 
+        {/* Page Sections - Managed with mode="wait" for smooth transitions between categories */}
+        <AnimatePresence mode="wait">
           {activeSection === 'home' && (
             <motion.div
               key="home"
@@ -1318,15 +1545,22 @@ export default function App() {
               exit={{ opacity: 0 }}
             >
               <Hero onNavigate={setActiveSection} />
-              <div className="px-6 pb-20 max-w-7xl mx-auto">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xs uppercase tracking-[0.3em] font-bold opacity-30">Selected Works</h3>
-                  <div className="h-px flex-grow mx-8 bg-black/5"></div>
-                </div>
-                <WorkGrid 
-                  items={works} 
-                  isLoading={isLoading} 
-                  onSelect={setSelectedWork}
+              
+              <div className="pb-40">
+                <HorizontalWorkRow 
+                  title="graphic" 
+                  items={graphicWorks} 
+                  onSelect={setSelectedWork} 
+                />
+                <HorizontalWorkRow 
+                  title="photo" 
+                  items={photoWorks} 
+                  onSelect={setSelectedWork} 
+                />
+                <HorizontalWorkRow 
+                  title="projects" 
+                  items={projectsWorks} 
+                  onSelect={setSelectedWork} 
                 />
               </div>
             </motion.div>
