@@ -314,42 +314,47 @@ const WorkGrid = ({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-black/5 border-y border-black/5">
-      {items.map((item, index) => (
-        <motion.div
-          key={item.id}
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: index * 0.1 }}
-          onClick={() => onSelect(item)}
-          className="group relative aspect-[4/5] bg-white overflow-hidden cursor-pointer"
-        >
-          <div className="w-full h-full">
-            {isVideo(item.image) ? (
-              <video 
-                src={item.image} 
-                className="w-full h-full object-cover group-hover:scale-125 transition-all duration-1000 ease-in-out"
-                autoPlay 
-                muted 
-                loop 
-                playsInline
-              />
-            ) : (
-              <img 
-                src={item.image} 
-                alt={item.title}
-                className="w-full h-full object-cover group-hover:scale-125 transition-all duration-1000 ease-in-out"
-                referrerPolicy="no-referrer"
-              />
-            )}
-          </div>
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-8 text-white">
-            <p className="text-[10px] uppercase tracking-widest mb-2 opacity-70">{item.category}</p>
-            <h3 className="text-2xl font-bold tracking-tight mb-4">{item.title}</h3>
-            <p className="text-sm opacity-80 line-clamp-2 whitespace-pre-wrap">{item.description}</p>
-          </div>
-        </motion.div>
-      ))}
+      {items.map((item, index) => {
+        const isCenter = index % 3 === 1;
+        const alignmentClass = isCenter ? "justify-start pt-12 pb-8 px-8" : "justify-end p-8";
+        
+        return (
+          <motion.div
+            key={item.id}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.6, delay: index * 0.1 }}
+            onClick={() => onSelect(item)}
+            className="group relative aspect-[4/5] bg-white overflow-hidden cursor-pointer"
+          >
+            <div className="w-full h-full">
+              {isVideo(item.image) ? (
+                <video 
+                  src={item.image} 
+                  className="w-full h-full object-cover group-hover:scale-[1.35] transition-all duration-1000 ease-in-out"
+                  autoPlay 
+                  muted 
+                  loop 
+                  playsInline
+                />
+              ) : (
+                <img 
+                  src={item.image} 
+                  alt={item.title}
+                  className="w-full h-full object-cover group-hover:scale-[1.35] transition-all duration-1000 ease-in-out"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+            </div>
+            <div className={`absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col text-white ${alignmentClass}`}>
+              <p className="text-[10px] uppercase tracking-widest mb-2 opacity-70">{item.category}</p>
+              <h3 className="text-2xl font-bold tracking-tight mb-4">{item.title}</h3>
+              <p className="text-sm opacity-80 line-clamp-2 whitespace-pre-wrap">{item.description}</p>
+            </div>
+          </motion.div>
+        );
+      })}
     </div>
   );
 };
@@ -403,9 +408,16 @@ const HorizontalWorkRow = ({
           className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-4 md:gap-6 pb-12"
         >
           {displayItems.map((item, index) => {
+            const isCenter = index % 3 === 1;
+            const alignmentClass = isCenter ? "justify-start pt-12 pb-8 px-8" : "justify-end p-8";
+
             return (
-              <div 
+              <motion.div 
                 key={`${item.id}-${index}`}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
                 onClick={() => onSelect(item)}
                 className={`flex-none w-[85vw] md:w-[calc((100%-3rem)/3)] aspect-[4/5] snap-start cursor-pointer relative group/item rounded-[2.5rem] overflow-hidden`}
               >
@@ -413,7 +425,7 @@ const HorizontalWorkRow = ({
                   {isVideo(item.image) ? (
                     <video 
                       src={item.image} 
-                      className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-1000 ease-in-out"
+                      className="w-full h-full object-cover group-hover/item:scale-125 transition-transform duration-1000 ease-in-out"
                       autoPlay 
                       muted 
                       loop 
@@ -423,13 +435,13 @@ const HorizontalWorkRow = ({
                     <img 
                       src={item.image} 
                       alt={item.title}
-                      className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-1000 ease-in-out"
+                      className="w-full h-full object-cover group-hover/item:scale-125 transition-transform duration-1000 ease-in-out"
                       referrerPolicy="no-referrer"
                     />
                   )}
                 </div>
                 
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/item:opacity-100 transition-opacity flex flex-col justify-end p-8 text-white">
+                <div className={`absolute inset-0 bg-black/30 opacity-0 group-hover/item:opacity-100 transition-opacity flex flex-col text-white ${alignmentClass}`}>
                   <div>
                     <p className="text-[10px] uppercase tracking-widest mb-2 opacity-70">{item.category}</p>
                     <h3 className="text-2xl font-black tracking-tight mb-3 uppercase">{item.title}</h3>
@@ -464,7 +476,7 @@ const HorizontalWorkRow = ({
                     )}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -1498,8 +1510,12 @@ const LoginPanel = ({ onLogin }: { onLogin: () => void }) => {
 
 const Footer = ({ onNavigate }: { onNavigate: (section: Section) => void }) => {
   return (
-    <footer className="w-full bg-[#161b22] text-white flex flex-col justify-end pt-20 pb-10 px-6 md:px-16">
-      <div className="max-w-7xl mx-auto w-full flex flex-col items-center justify-between h-full">
+    <>
+      {/* Spacer for fixed footer */}
+      <div className="h-[550px] md:h-[400px]" />
+      
+      <footer className="fixed bottom-0 left-0 w-full h-[550px] md:h-[400px] z-0 bg-[#161b22] text-white flex flex-col justify-end pt-20 pb-10 px-6 md:px-16">
+        <div className="max-w-7xl mx-auto w-full flex flex-col items-center justify-between h-full">
           
           {/* Top/Middle Section with 3 columns */}
           <div className="w-full flex flex-col md:flex-row justify-between items-center md:items-start flex-1 mt-10">
@@ -1554,6 +1570,7 @@ const Footer = ({ onNavigate }: { onNavigate: (section: Section) => void }) => {
 
         </div>
       </footer>
+    </>
   );
 };
 
@@ -1676,7 +1693,7 @@ export default function App() {
             >
               <Hero onNavigate={setActiveSection} featuredWorks={featuredWorks} />
               
-              <div className="pb-40">
+              <div className="pb-10">
                 <HorizontalWorkRow 
                   title="graphic" 
                   items={graphicWorks} 
