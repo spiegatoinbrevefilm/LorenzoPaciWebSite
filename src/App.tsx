@@ -25,7 +25,10 @@ import {
   LogOut,
   LogIn,
   Loader2,
-  Lock
+  Lock,
+  Youtube,
+  Facebook,
+  MessageCircle
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -230,13 +233,13 @@ const HeroSlider = ({ featuredWorks }: { featuredWorks: WorkItem[] }) => {
 
 const Hero = ({ onNavigate, featuredWorks }: { onNavigate: (s: Section) => void, featuredWorks: WorkItem[] }) => {
   return (
-    <section className="pt-32 pb-24 px-4 md:px-8 max-w-[1600px] mx-auto">
-      <div className="grid lg:grid-cols-[0.5fr_1.5fr] gap-8 md:gap-12 items-stretch">
+    <section className="pt-32 pb-12 px-4 md:px-8 max-w-[1600px] mx-auto">
+      <div className="grid lg:grid-cols-3 gap-4 md:gap-6 items-stretch">
         <motion.div
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="flex flex-col justify-between py-2"
+          className="flex flex-col justify-between py-2 lg:col-span-1"
         >
           <div>
             <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.85] mb-12">
@@ -275,7 +278,7 @@ const Hero = ({ onNavigate, featuredWorks }: { onNavigate: (s: Section) => void,
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, delay: 0.2 }}
-          className="w-full"
+          className="w-full lg:col-span-2"
         >
           <HeroSlider featuredWorks={featuredWorks} />
         </motion.div>
@@ -366,42 +369,45 @@ const HorizontalWorkRow = ({
   onSelect: (item: WorkItem) => void 
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const { scrollLeft, clientWidth } = scrollRef.current;
-      const scrollTo = direction === 'left' ? scrollLeft - clientWidth : scrollLeft + clientWidth;
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      let scrollTo = direction === 'left' ? scrollLeft - clientWidth : scrollLeft + clientWidth;
+      
+      if (direction === 'right' && scrollLeft >= scrollWidth - clientWidth - 10) {
+        scrollTo = 0;
+      } else if (direction === 'left' && scrollLeft <= 10) {
+        scrollTo = scrollWidth;
+      }
+      
       scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
     }
   };
 
   const handleScroll = () => {
-    if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      setShowLeftArrow(scrollLeft > 20);
-      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 20);
-    }
+    // Scroll handler can be empty or removed if not needed elsewhere
   };
 
   if (items.length === 0) return null;
 
+  // Duplicate items if there are 3 or fewer, so the carousel can scroll and loop
+  const displayItems = items.length > 0 && items.length <= 3 ? [...items, ...items] : items;
+
   return (
-    <div className="relative group mb-32 px-4 md:px-8 max-w-[1600px] mx-auto">
+    <div className="relative group mb-8 px-4 md:px-8 max-w-[1600px] mx-auto">
       <div className="relative">
         <div 
           ref={scrollRef}
           onScroll={handleScroll}
           className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-4 md:gap-6 pb-12"
         >
-          {items.map((item, index) => {
-            const isMiddle = index % 3 === 1;
+          {displayItems.map((item, index) => {
             return (
               <div 
                 key={`${item.id}-${index}`}
                 onClick={() => onSelect(item)}
-                className={`flex-none w-[85vw] md:w-[31.5%] aspect-[4/5] snap-start cursor-pointer relative group/item rounded-[2.5rem] overflow-hidden ${isMiddle ? 'clip-middle-bottom' : ''}`}
+                className={`flex-none w-[85vw] md:w-[calc((100%-3rem)/3)] aspect-[4/5] snap-start cursor-pointer relative group/item rounded-[2.5rem] overflow-hidden`}
               >
                 <div className="w-full h-full">
                   {isVideo(item.image) ? (
@@ -458,26 +464,31 @@ const HorizontalWorkRow = ({
                     )}
                   </div>
                 </div>
-
-                {/* Arrow only on the third image of each set of 3 */}
-                {index % 3 === 2 && showRightArrow && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); scroll('right'); }}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white p-4 rounded-l-full shadow-xl hover:scale-110 transition-all hidden md:block"
-                    style={{ clipPath: 'polygon(0 0, 100% 50%, 0 100%)' }}
-                  >
-                    <div className="w-4 h-8" />
-                  </button>
-                )}
               </div>
             );
           })}
+        </div>
+
+        {/* Fixed Bottom Cutout Mask */}
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-[calc(3rem-2px)] w-[85vw] md:w-[calc((100%-3rem)/3)] aspect-[4/5] z-10 pointer-events-none hidden md:block">
+          <svg viewBox="0 0 100 9" className="absolute bottom-[-1px] left-[-1px] w-[calc(100%+2px)] h-[9%] text-white fill-current" preserveAspectRatio="none">
+            <polygon points="0,9 50,0 100,9" />
+          </svg>
         </div>
 
         {/* Category Label below middle image */}
         <div className="absolute left-1/2 -translate-x-1/2 bottom-6 text-center z-10 pointer-events-none">
           <h3 className="text-4xl md:text-6xl italic font-serif lowercase tracking-tight text-black leading-none">{title}</h3>
         </div>
+
+        {/* Fixed Right Arrow */}
+        <button 
+          onClick={(e) => { e.stopPropagation(); scroll('right'); }}
+          className="absolute right-[-2px] top-1/2 -translate-y-1/2 z-20 bg-white p-5 rounded-l-full shadow-xl hover:scale-110 transition-all duration-300 opacity-0 group-hover:opacity-100 hidden md:block"
+          style={{ clipPath: 'polygon(0 0, 100% 50%, 0 100%)', marginTop: '-1.5rem' }}
+        >
+          <div className="w-5 h-10" />
+        </button>
       </div>
     </div>
   );
@@ -1485,26 +1496,64 @@ const LoginPanel = ({ onLogin }: { onLogin: () => void }) => {
   );
 };
 
-const Footer = () => {
+const Footer = ({ onNavigate }: { onNavigate: (section: Section) => void }) => {
   return (
-    <footer className="py-20 px-6 border-t border-black/5 bg-white">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center space-y-8 md:space-y-0">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tighter uppercase">Lorenzo Paci</h2>
-          <p className="text-xs uppercase tracking-widest opacity-40">Creative Visionary</p>
-        </div>
-        
-        <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-12">
-          <div className="text-[10px] uppercase tracking-[0.2em] opacity-40">
-            © 2025 Made with Love in Marche
+    <footer className="w-full bg-[#161b22] text-white flex flex-col justify-end pt-20 pb-10 px-6 md:px-16">
+      <div className="max-w-7xl mx-auto w-full flex flex-col items-center justify-between h-full">
+          
+          {/* Top/Middle Section with 3 columns */}
+          <div className="w-full flex flex-col md:flex-row justify-between items-center md:items-start flex-1 mt-10">
+            
+            {/* Left Links */}
+            <div className="flex flex-col items-center md:items-start space-y-6 mb-12 md:mb-0">
+              <button onClick={() => onNavigate('graphic')} className="text-[10px] md:text-xs uppercase tracking-[0.4em] opacity-50 hover:opacity-100 transition-opacity">Graphic</button>
+              <button onClick={() => onNavigate('photo')} className="text-[10px] md:text-xs uppercase tracking-[0.4em] opacity-50 hover:opacity-100 transition-opacity">Photo</button>
+              <button onClick={() => onNavigate('projects')} className="text-[10px] md:text-xs uppercase tracking-[0.4em] opacity-50 hover:opacity-100 transition-opacity">Project</button>
+            </div>
+
+            {/* Center Logo & Socials */}
+            <div className="flex flex-col items-center mb-12 md:mb-0">
+              <div 
+                className="cursor-pointer group flex flex-col items-center text-center"
+                onClick={() => onNavigate('home')}
+              >
+                <h2 className="text-3xl md:text-4xl font-black tracking-tighter uppercase leading-none">Lorenzo Paci</h2>
+                <p className="text-[10px] md:text-xs tracking-[0.3em] uppercase opacity-40 mt-4">Creative Visionary</p>
+              </div>
+              
+              <div className="flex items-center space-x-6 mt-10">
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/20 transition-colors">
+                  <Instagram size={16} />
+                </a>
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/20 transition-colors">
+                  <Youtube size={16} />
+                </a>
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/20 transition-colors">
+                  <Facebook size={16} />
+                </a>
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/20 transition-colors">
+                  <MessageCircle size={16} />
+                </a>
+              </div>
+            </div>
+
+            {/* Right Links */}
+            <div className="flex flex-col items-center md:items-end space-y-6">
+              <button onClick={() => onNavigate('admin')} className="text-[10px] md:text-xs uppercase tracking-[0.4em] opacity-50 hover:opacity-100 transition-opacity">Client Area</button>
+              <button onClick={() => onNavigate('bio')} className="text-[10px] md:text-xs uppercase tracking-[0.4em] opacity-50 hover:opacity-100 transition-opacity">Bio</button>
+              <a href="#" className="text-[10px] md:text-xs uppercase tracking-[0.4em] opacity-50 hover:opacity-100 transition-opacity">Privacy & Policy</a>
+            </div>
           </div>
-          <div className="flex space-x-6">
-            <a href="#" className="text-xs uppercase tracking-widest font-bold hover:underline">Privacy & Policy</a>
-            <a href="mailto:lorenz.paci@gmail.com" className="text-xs uppercase tracking-widest font-bold hover:underline">Contact</a>
+
+          {/* Bottom Copyright */}
+          <div className="w-full text-center mt-16">
+            <p className="text-[9px] md:text-[10px] text-white/40 tracking-widest uppercase">
+              © 2025 Made with Love in Marche - lorenz.paci@gmail.com - Ancona|Marche|Italia - 3208130419
+            </p>
           </div>
+
         </div>
-      </div>
-    </footer>
+      </footer>
   );
 };
 
@@ -1583,9 +1632,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
-      <AnimatePresence>
-        {showSaveIndicator && (
+    <div className="min-h-screen bg-[#161b22] text-black font-sans selection:bg-black selection:text-white">
+      <div className="bg-white rounded-b-[40px] md:rounded-b-[80px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative z-10 min-h-screen pb-10">
+        <AnimatePresence>
+          {showSaveIndicator && (
           <motion.div 
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1699,8 +1749,9 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+      </div>
 
-      <Footer />
+      <Footer onNavigate={setActiveSection} />
     </div>
   );
 }
