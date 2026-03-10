@@ -54,3 +54,7 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.clip-middle-bottom {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 92%, 0 100%);
+}

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Menu, 
@@ -24,7 +24,8 @@ import {
   Save,
   LogOut,
   LogIn,
-  Loader2
+  Loader2,
+  Lock
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -43,6 +44,7 @@ interface WorkItem {
   description_bottom?: string;
   gallery?: { url: string; caption?: string; link?: { label: string; url: string } }[];
   links?: { label: string; url: string }[];
+  is_featured?: boolean;
   created_at?: string;
 }
 
@@ -60,11 +62,11 @@ const Navbar = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems: { label: string; value: Section }[] = [
-    { label: 'All Works', value: 'home' },
-    { label: 'Graphic', value: 'graphic' },
-    { label: 'Photo', value: 'photo' },
-    { label: 'Projects', value: 'projects' },
-    { label: 'Bio', value: 'bio' },
+    { label: 'ALL WORKS', value: 'home' },
+    { label: 'GRAPHIC', value: 'graphic' },
+    { label: 'PHOTO', value: 'photo' },
+    { label: 'PROJECTS', value: 'projects' },
+    { label: 'BIO', value: 'bio' },
   ];
 
   return (
@@ -74,8 +76,8 @@ const Navbar = ({
           className="cursor-pointer group"
           onClick={() => onNavigate('home')}
         >
-          <h1 className="text-xl font-bold tracking-tighter uppercase">Lorenzo Paci</h1>
-          <p className="text-[10px] tracking-[0.2em] uppercase opacity-50 group-hover:opacity-100 transition-opacity">Creative Visionary</p>
+          <h1 className="text-xl font-black tracking-tighter uppercase leading-none">Lorenzo Paci</h1>
+          <p className="text-[9px] tracking-[0.2em] uppercase opacity-40 group-hover:opacity-100 transition-opacity mt-1">Creative Visionary</p>
         </div>
 
         {/* Desktop Nav */}
@@ -84,7 +86,7 @@ const Navbar = ({
             <button
               key={item.value}
               onClick={() => onNavigate(item.value)}
-              className={`text-xs uppercase tracking-widest font-medium transition-all hover:opacity-100 ${
+              className={`text-[11px] uppercase tracking-widest font-medium transition-all hover:opacity-100 ${
                 activeSection === item.value ? 'opacity-100 border-b border-black pb-1' : 'opacity-40'
               }`}
             >
@@ -92,24 +94,15 @@ const Navbar = ({
             </button>
           ))}
           
-          {isAdmin ? (
-            <button 
-              onClick={() => onNavigate('admin')}
-              className={`text-[10px] uppercase tracking-widest px-4 py-2 border rounded-full transition-colors flex items-center space-x-2 ${
-                activeSection === 'admin' ? 'bg-black text-white border-black' : 'border-black/10 hover:bg-black hover:text-white'
-              }`}
-            >
-              <Briefcase size={12} />
-              <span>Admin Panel</span>
-            </button>
-          ) : (
-            <button 
-              onClick={() => onNavigate('admin')}
-              className="text-[10px] uppercase tracking-widest px-4 py-2 border border-black/10 rounded-full hover:bg-black hover:text-white transition-colors"
-            >
-              Client Area
-            </button>
-          )}
+          <button 
+            onClick={() => onNavigate('admin')}
+            className={`text-[10px] uppercase tracking-widest px-4 py-2 border rounded-full transition-colors flex items-center space-x-2 ${
+              activeSection === 'admin' ? 'bg-black text-white border-black' : 'border-black/10 hover:bg-black hover:text-white'
+            }`}
+          >
+            <Lock size={12} />
+            <span>Admin Panel</span>
+          </button>
         </div>
 
         {/* Mobile Toggle */}
@@ -147,9 +140,10 @@ const Navbar = ({
                   onNavigate('admin');
                   setIsOpen(false);
                 }}
-                className="text-lg uppercase tracking-widest font-bold text-left opacity-40"
+                className="text-lg uppercase tracking-widest font-bold text-left opacity-40 flex items-center space-x-2"
               >
-                Admin Panel
+                <Lock size={20} />
+                <span>Admin Panel</span>
               </button>
             </div>
           </motion.div>
@@ -159,41 +153,136 @@ const Navbar = ({
   );
 };
 
-const Hero = ({ onNavigate }: { onNavigate: (s: Section) => void }) => {
+const HeroSlider = ({ featuredWorks }: { featuredWorks: WorkItem[] }) => {
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    if (featuredWorks.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % featuredWorks.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [featuredWorks.length]);
+
+  if (featuredWorks.length === 0) {
+    return (
+      <div className="relative w-full h-full rounded-[2.5rem] overflow-hidden bg-gray-100 flex items-center justify-center min-h-[400px]">
+        <p className="text-xs uppercase tracking-widest opacity-20 font-bold">No featured works</p>
+      </div>
+    );
+  }
+
   return (
-    <section className="pt-40 pb-12 px-6 max-w-7xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-      >
-        <h2 className="text-5xl md:text-8xl font-light tracking-tighter leading-[0.9] mb-8">
-          Indie freelancer.<br />
-          <span className="italic font-serif">Creative Visionary.</span>
-        </h2>
-        <div className="grid md:grid-cols-2 gap-12 items-end">
-          <p className="text-xl md:text-2xl text-black/60 leading-relaxed max-w-xl">
-            Scrivo di cinema, personaggi, cucina, viaggi e lifestyle. 
-            Non faccio l'influencer, peró mi sono guadagnato un blue badge su Instagram...
-          </p>
-          <div className="flex flex-col items-start space-y-4">
+    <div className="relative w-full h-full rounded-[2.5rem] overflow-hidden group shadow-2xl shadow-black/5">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={current}
+          initial={{ opacity: 0, scale: 1.05 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0"
+        >
+          {isVideo(featuredWorks[current].image) ? (
+            <video 
+              src={featuredWorks[current].image} 
+              className="w-full h-full object-cover"
+              autoPlay 
+              muted 
+              loop 
+              playsInline
+            />
+          ) : (
+            <img 
+              src={featuredWorks[current].image} 
+              alt={featuredWorks[current].title}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          )}
+          <div className="absolute inset-0 bg-black/5"></div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Indicators */}
+      {featuredWorks.length > 1 && (
+        <div className="absolute right-8 top-1/2 -translate-y-1/2 flex flex-col space-y-4 z-10">
+          {featuredWorks.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrent(idx)}
+              className={`w-2 h-2 rounded-full transition-all duration-700 ${
+                current === idx ? 'bg-white h-8' : 'bg-white/40 hover:bg-white/60'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+      
+      {/* Title Overlay for Featured */}
+      <div className="absolute bottom-10 left-10 z-10 text-white">
+        <p className="text-[10px] uppercase tracking-[0.4em] font-bold opacity-70 mb-2">{featuredWorks[current].category}</p>
+        <h3 className="text-3xl font-black tracking-tighter uppercase">{featuredWorks[current].title}</h3>
+      </div>
+    </div>
+  );
+};
+
+const Hero = ({ onNavigate, featuredWorks }: { onNavigate: (s: Section) => void, featuredWorks: WorkItem[] }) => {
+  return (
+    <section className="pt-32 pb-24 px-4 md:px-8 max-w-[1600px] mx-auto">
+      <div className="grid lg:grid-cols-[0.5fr_1.5fr] gap-8 md:gap-12 items-stretch">
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="flex flex-col justify-between py-2"
+        >
+          <div>
+            <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.85] mb-12">
+              Indie freelancer.<br />
+              <span className="italic font-serif font-normal">Creative Visionary</span>
+            </h2>
+            
+            <div className="space-y-8 max-w-lg">
+              <div>
+                <p className="text-[9px] uppercase tracking-[0.3em] font-bold opacity-30 mb-4">Introduction</p>
+                <p className="text-lg md:text-xl text-black/70 leading-relaxed font-medium">
+                  Scrivo di cinema, personaggi, cucina, viaggi e lifestyle. 
+                  Non faccio l'influencer, però mi sono guadagnato un blue badge su Instagram.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-8 pt-8">
+            <div className="flex space-x-6">
+              <a href="#" className="opacity-40 hover:opacity-100 transition-opacity"><Instagram size={22} /></a>
+              <a href="mailto:lorenz.paci@gmail.com" className="opacity-40 hover:opacity-100 transition-opacity"><Mail size={22} /></a>
+            </div>
+            
             <button 
               onClick={() => onNavigate('bio')}
-              className="group flex items-center space-x-3 text-sm uppercase tracking-widest font-bold"
+              className="group flex items-center space-x-3 text-[11px] uppercase tracking-widest font-black"
             >
               <span>Parlamene ancora</span>
               <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
             </button>
-            <div className="flex space-x-6 pt-4">
-              <a href="#" className="opacity-40 hover:opacity-100 transition-opacity"><Instagram size={20} /></a>
-              <a href="mailto:lorenz.paci@gmail.com" className="opacity-40 hover:opacity-100 transition-opacity"><Mail size={20} /></a>
-            </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1, delay: 0.2 }}
+          className="w-full"
+        >
+          <HeroSlider featuredWorks={featuredWorks} />
+        </motion.div>
+      </div>
     </section>
   );
-};
+};;
 
 const WorkGrid = ({ 
   items, 
@@ -276,11 +365,9 @@ const HorizontalWorkRow = ({
   items: WorkItem[], 
   onSelect: (item: WorkItem) => void 
 }) => {
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  const [centeredId, setCenteredId] = useState<string | null>(null);
-  
-  // Triple the items to create an infinite loop effect
-  const displayItems = items.length > 1 ? [...items, ...items, ...items] : items;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -290,138 +377,106 @@ const HorizontalWorkRow = ({
     }
   };
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (scrollRef.current) {
-        const container = scrollRef.current;
-        const { scrollLeft, scrollWidth, clientWidth } = container;
-        
-        // Infinite loop logic: jump when reaching the ends of the tripled list
-        if (items.length > 1) {
-          const oneSetWidth = scrollWidth / 3;
-          if (scrollLeft < 10) {
-            // If at the very beginning, jump to the start of the second set
-            container.scrollLeft = oneSetWidth;
-          } else if (scrollLeft > oneSetWidth * 2) {
-            // If reached the third set, jump back to the second set
-            container.scrollLeft = oneSetWidth;
-          }
-        }
-
-        const containerCenter = container.scrollLeft + container.clientWidth / 2;
-        
-        let closestId = null;
-        let minDistance = Infinity;
-
-        const children = container.children;
-        for (let i = 0; i < children.length; i++) {
-          const child = children[i] as HTMLElement;
-          const childCenter = child.offsetLeft + child.clientWidth / 2;
-          const distance = Math.abs(containerCenter - childCenter);
-          
-          if (distance < minDistance) {
-            minDistance = distance;
-            // Use modulo to get the correct item ID from the original items array
-            closestId = items[i % items.length]?.id;
-          }
-        }
-        setCenteredId(closestId);
-      }
-    };
-
-    const currentRef = scrollRef.current;
-    if (currentRef) {
-      currentRef.addEventListener('scroll', handleScroll, { passive: true });
-      
-      // Initial setup: scroll to the middle set for infinite effect
-      const initScroll = () => {
-        if (items.length > 1) {
-          const oneSetWidth = currentRef.scrollWidth / 3;
-          currentRef.scrollLeft = oneSetWidth;
-        }
-        handleScroll();
-      };
-
-      // Small delay to ensure layout and scrollWidth are ready
-      const timer = setTimeout(initScroll, 100);
-      
-      window.addEventListener('resize', handleScroll);
-      return () => {
-        currentRef.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('resize', handleScroll);
-        clearTimeout(timer);
-      };
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setShowLeftArrow(scrollLeft > 20);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 20);
     }
-  }, [items]);
+  };
 
   if (items.length === 0) return null;
 
   return (
-    <div className="relative group mb-20">
+    <div className="relative group mb-32 px-4 md:px-8 max-w-[1600px] mx-auto">
       <div className="relative">
         <div 
           ref={scrollRef}
-          className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-1"
+          onScroll={handleScroll}
+          className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-4 md:gap-6 pb-12"
         >
-          {displayItems.map((item, index) => (
-            <div 
-              key={`${item.id}-${index}`}
-              onClick={() => onSelect(item)}
-              className="flex-none w-[90vw] md:w-[45vw] lg:w-[33vw] aspect-[4/5] snap-start cursor-pointer overflow-hidden relative group/item"
-            >
-              <div className="w-full h-full">
-                {isVideo(item.image) ? (
-                  <video 
-                    src={item.image} 
-                    className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-1000 ease-in-out"
-                    autoPlay 
-                    muted 
-                    loop 
-                    playsInline
-                  />
-                ) : (
-                  <img 
-                    src={item.image} 
-                    alt={item.title}
-                    className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-1000 ease-in-out"
-                    referrerPolicy="no-referrer"
-                  />
+          {items.map((item, index) => {
+            const isMiddle = index % 3 === 1;
+            return (
+              <div 
+                key={`${item.id}-${index}`}
+                onClick={() => onSelect(item)}
+                className={`flex-none w-[85vw] md:w-[31.5%] aspect-[4/5] snap-start cursor-pointer relative group/item rounded-[2.5rem] overflow-hidden ${isMiddle ? 'clip-middle-bottom' : ''}`}
+              >
+                <div className="w-full h-full">
+                  {isVideo(item.image) ? (
+                    <video 
+                      src={item.image} 
+                      className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-1000 ease-in-out"
+                      autoPlay 
+                      muted 
+                      loop 
+                      playsInline
+                    />
+                  ) : (
+                    <img 
+                      src={item.image} 
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-1000 ease-in-out"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </div>
+                
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/item:opacity-100 transition-opacity flex flex-col justify-end p-8 text-white">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest mb-2 opacity-70">{item.category}</p>
+                    <h3 className="text-2xl font-black tracking-tight mb-3 uppercase">{item.title}</h3>
+                    <p className="text-xs opacity-70 line-clamp-3 whitespace-pre-wrap mb-6 leading-relaxed">{item.description}</p>
+                    
+                    {(item.image_link || (item.links && item.links.length > 0)) && (
+                      <div className="flex flex-wrap gap-3">
+                        {item.image_link && item.image_link.url && (
+                          <a 
+                            href={item.image_link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[9px] uppercase tracking-widest font-bold px-3 py-1.5 bg-white/20 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/40 transition-colors"
+                          >
+                            {item.image_link.label || 'View'}
+                          </a>
+                        )}
+                        {item.links && item.links.slice(0, 1).map((link, i) => (
+                          <a 
+                            key={i}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[9px] uppercase tracking-widest font-bold px-3 py-1.5 bg-white/20 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/40 transition-colors"
+                          >
+                            {link.label}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Arrow only on the third image of each set of 3 */}
+                {index % 3 === 2 && showRightArrow && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); scroll('right'); }}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white p-4 rounded-l-full shadow-xl hover:scale-110 transition-all hidden md:block"
+                    style={{ clipPath: 'polygon(0 0, 100% 50%, 0 100%)' }}
+                  >
+                    <div className="w-4 h-8" />
+                  </button>
                 )}
               </div>
-              <div className={`absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex flex-col ${item.id === centeredId ? 'justify-start' : 'justify-end'} p-8 text-white`}>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest mb-2 opacity-70">{item.category}</p>
-                  <h3 className="text-2xl font-bold tracking-tight mb-4">{item.title}</h3>
-                  <p className="text-sm opacity-80 line-clamp-2 whitespace-pre-wrap">{item.description}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Large Right Chevron - Graphic Stratagem */}
-        <button 
-          onClick={() => scroll('right')}
-          className="absolute right-0 top-0 bottom-0 z-10 w-24 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-black/40 to-transparent"
-        >
-          <svg width="40" height="100" viewBox="0 0 40 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-2xl">
-            <path d="M0 0L40 50L0 100V0Z" fill="white" />
-          </svg>
-        </button>
-
-        {/* Category Label with Arrow Graphic - Overlaid on Image */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20 w-[90vw] md:w-[45vw] lg:w-[33vw]">
-          <div className="relative h-[35px] md:h-[50px] flex justify-center">
-            {/* Upward pointing triangle using clip-path for full width - squashed height */}
-            <div 
-              className="absolute inset-0 bg-white"
-              style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}
-            ></div>
-            {/* Text positioned half-in and half-out of the triangle base */}
-            <div className="absolute bottom-0 translate-y-1/2 z-10">
-              <h3 className="text-4xl md:text-6xl italic font-serif lowercase tracking-tight text-black leading-none">{title}</h3>
-            </div>
-          </div>
+        {/* Category Label below middle image */}
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-6 text-center z-10 pointer-events-none">
+          <h3 className="text-4xl md:text-6xl italic font-serif lowercase tracking-tight text-black leading-none">{title}</h3>
         </div>
       </div>
     </div>
@@ -836,7 +891,8 @@ const AdminPanel = ({
     description: '',
     description_bottom: '',
     gallery: [],
-    links: []
+    links: [],
+    is_featured: false
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -925,6 +981,7 @@ const AdminPanel = ({
       category: formData.category,
       image: formData.image,
       description: formData.description,
+      is_featured: !!formData.is_featured
     };
 
     // Add optional fields only if they have content to avoid potential column issues if not needed
@@ -950,15 +1007,15 @@ const AdminPanel = ({
         if (isColumnError) {
           console.warn('Advanced columns missing or type mismatch, attempting fallback save...');
           
-          // Fallback payload with only the most basic fields
-          const fallbackPayload = {
-            title: formData.title,
-            category: formData.category,
-            image: formData.image,
-            description: formData.description,
-            // Fallback gallery to strings if it was an array of objects but the DB expects strings (text[])
-            gallery: cleanedGallery.map(item => typeof item === 'string' ? item : item.url)
-          };
+    const fallbackPayload: any = {
+      title: formData.title,
+      category: formData.category,
+      image: formData.image,
+      description: formData.description,
+      is_featured: !!formData.is_featured,
+      // Fallback gallery to strings if it was an array of objects but the DB expects strings (text[])
+      gallery: cleanedGallery.map(item => typeof item === 'string' ? item : item.url)
+    };
 
           const { error: fallbackError } = editingId 
             ? await supabase.from('works').update(fallbackPayload).eq('id', editingId)
@@ -989,7 +1046,8 @@ const AdminPanel = ({
         description: '', 
         description_bottom: '', 
         gallery: [], 
-        links: [] 
+        links: [],
+        is_featured: false
       });
     } catch (error: any) {
       console.error('Final catch error:', error);
@@ -1064,6 +1122,18 @@ const AdminPanel = ({
                   <option value="photo">Photo</option>
                   <option value="projects">Projects</option>
                 </select>
+              </div>
+              <div className="flex items-center space-x-3 p-4 bg-white border border-black/10 rounded-lg">
+                <input 
+                  type="checkbox" 
+                  id="is_featured"
+                  checked={formData.is_featured}
+                  onChange={(e) => setFormData({...formData, is_featured: e.target.checked})}
+                  className="w-4 h-4 rounded border-black/10 text-black focus:ring-black"
+                />
+                <label htmlFor="is_featured" className="text-[10px] uppercase tracking-widest font-bold opacity-60 cursor-pointer">
+                  Metti in evidenza nella Home Page
+                </label>
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2 opacity-40">Cover Image URL</label>
@@ -1273,6 +1343,7 @@ const AdminPanel = ({
               <th className="py-4 text-[10px] uppercase tracking-widest font-bold opacity-30">Preview</th>
               <th className="py-4 text-[10px] uppercase tracking-widest font-bold opacity-30">Title</th>
               <th className="py-4 text-[10px] uppercase tracking-widest font-bold opacity-30">Category</th>
+              <th className="py-4 text-[10px] uppercase tracking-widest font-bold opacity-30">Featured</th>
               <th className="py-4 text-[10px] uppercase tracking-widest font-bold opacity-30 text-right">Actions</th>
             </tr>
           </thead>
@@ -1290,6 +1361,13 @@ const AdminPanel = ({
                     {work.category}
                   </span>
                 </td>
+                <td className="py-4">
+                  {work.is_featured && (
+                    <span className="text-[10px] uppercase tracking-widest px-2 py-1 bg-yellow-100 text-yellow-700 rounded-md font-bold">
+                      Yes
+                    </span>
+                  )}
+                </td>
                 <td className="py-4 text-right">
                   <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
@@ -1306,7 +1384,8 @@ const AdminPanel = ({
                           gallery: (work.gallery || []).map(item => 
                             typeof item === 'string' ? { url: item, caption: '', link: { label: '', url: '' } } : item
                           ),
-                          links: work.links || []
+                          links: work.links || [],
+                          is_featured: work.is_featured || false
                         });
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
@@ -1491,6 +1570,7 @@ export default function App() {
   const graphicWorks = useMemo(() => works.filter(w => w.category === 'graphic'), [works]);
   const photoWorks = useMemo(() => works.filter(w => w.category === 'photo'), [works]);
   const projectsWorks = useMemo(() => works.filter(w => w.category === 'projects'), [works]);
+  const featuredWorks = useMemo(() => works.filter(w => w.is_featured), [works]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1544,7 +1624,7 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <Hero onNavigate={setActiveSection} />
+              <Hero onNavigate={setActiveSection} featuredWorks={featuredWorks} />
               
               <div className="pb-40">
                 <HorizontalWorkRow 
