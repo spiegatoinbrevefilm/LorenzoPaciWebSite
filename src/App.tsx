@@ -163,7 +163,7 @@ const HeroSlider = ({ featuredWorks }: { featuredWorks: WorkItem[] }) => {
     if (featuredWorks.length <= 1) return;
     const timer = setInterval(() => {
       setCurrent((prev) => (prev + 1) % featuredWorks.length);
-    }, 5000);
+    }, 8000);
     return () => clearInterval(timer);
   }, [featuredWorks.length]);
 
@@ -176,14 +176,14 @@ const HeroSlider = ({ featuredWorks }: { featuredWorks: WorkItem[] }) => {
   }
 
   return (
-    <div className="relative w-full h-full rounded-[2.5rem] overflow-hidden group shadow-2xl shadow-black/5">
-      <AnimatePresence mode="wait">
+    <div className="relative w-full h-full rounded-[2.5rem] overflow-hidden group shadow-2xl shadow-black/5 bg-[#161b22]">
+      <AnimatePresence>
         <motion.div
           key={current}
           initial={{ opacity: 0, scale: 1.05 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.98 }}
-          transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+          exit={{ opacity: 0, scale: 1 }}
+          transition={{ duration: 1.5, ease: "easeInOut" }}
           className="absolute inset-0"
         >
           {isVideo(featuredWorks[current].image) ? (
@@ -225,7 +225,35 @@ const HeroSlider = ({ featuredWorks }: { featuredWorks: WorkItem[] }) => {
       {/* Title Overlay for Featured */}
       <div className="absolute bottom-10 left-10 z-10 text-white">
         <p className="text-[10px] uppercase tracking-[0.4em] font-bold opacity-70 mb-2">{featuredWorks[current].category}</p>
-        <h3 className="text-3xl font-black tracking-tighter uppercase">{featuredWorks[current].title}</h3>
+        <h3 className="text-3xl font-black tracking-tighter uppercase mb-4">{featuredWorks[current].title}</h3>
+        
+        {(featuredWorks[current].image_link || (featuredWorks[current].links && featuredWorks[current].links.length > 0)) && (
+          <div className="flex flex-wrap gap-3">
+            {featuredWorks[current].image_link && featuredWorks[current].image_link.url && (
+              <a 
+                href={featuredWorks[current].image_link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-[9px] uppercase tracking-widest font-bold px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/40 transition-colors"
+              >
+                {featuredWorks[current].image_link.label || 'View'}
+              </a>
+            )}
+            {featuredWorks[current].links && featuredWorks[current].links.slice(0, 1).map((link, i) => (
+              <a 
+                key={i}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-[9px] uppercase tracking-widest font-bold px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm border border-white/10 hover:bg-white/40 transition-colors"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -316,7 +344,9 @@ const WorkGrid = ({
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-black/5 border-y border-black/5">
       {items.map((item, index) => {
         const isCenter = index % 3 === 1;
-        const alignmentClass = isCenter ? "justify-start pt-12 pb-8 px-8" : "justify-end p-8";
+        const alignmentClass = isCenter 
+          ? "justify-end p-8 lg:justify-start lg:pt-12 lg:pb-8 lg:px-8" 
+          : "justify-end p-8";
         
         return (
           <motion.div
@@ -374,6 +404,37 @@ const HorizontalWorkRow = ({
   onSelect: (item: WorkItem) => void 
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [centerIndex, setCenterIndex] = useState(1);
+
+  const updateCenterIndex = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const centerPosition = scrollLeft + clientWidth / 2;
+      
+      let closestIndex = 0;
+      let minDistance = Infinity;
+      
+      Array.from(scrollRef.current.children).forEach((child, index) => {
+        const childCenter = (child as HTMLElement).offsetLeft + (child as HTMLElement).clientWidth / 2;
+        const distance = Math.abs(childCenter - centerPosition);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIndex = index;
+        }
+      });
+      
+      setCenterIndex(closestIndex);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(updateCenterIndex, 100);
+    window.addEventListener('resize', updateCenterIndex);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateCenterIndex);
+    };
+  }, []);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -391,7 +452,7 @@ const HorizontalWorkRow = ({
   };
 
   const handleScroll = () => {
-    // Scroll handler can be empty or removed if not needed elsewhere
+    updateCenterIndex();
   };
 
   if (items.length === 0) return null;
@@ -405,11 +466,13 @@ const HorizontalWorkRow = ({
         <div 
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-4 md:gap-6 pb-12"
+          className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-4 md:gap-6 pb-12 relative"
         >
           {displayItems.map((item, index) => {
-            const isCenter = index % 3 === 1;
-            const alignmentClass = isCenter ? "justify-start pt-12 pb-8 px-8" : "justify-end p-8";
+            const isCenter = index === centerIndex;
+            const alignmentClass = isCenter 
+              ? "justify-end p-8 md:justify-start md:pt-12 md:pb-8 md:px-8" 
+              : "justify-end p-8";
 
             return (
               <motion.div 
